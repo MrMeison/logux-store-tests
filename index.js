@@ -28,14 +28,9 @@ function all (request, list) {
   })
 }
 
-function check (storeInstance, created, added) {
-  if (!added) added = created
-  return all(storeInstance.get({ order: 'created' })).then(entries => {
-    assert.deepEqual(entries, created)
-  }).then(() => {
-    return all(storeInstance.get({ order: 'added' }))
-  }).then(entries => {
-    assert.deepEqual(entries, added)
+function check (storeInstance, order, added) {
+  return all(storeInstance.get({ order })).then(entries => {
+    expect(entries).toEqual(added)
   })
 }
 
@@ -51,7 +46,7 @@ function nope () { }
 module.exports = function eachTest (test) {
   test('is empty in the beginning', storeFactory => () => {
     const store = storeFactory()
-    return check(store, []).then(() => {
+    return check(store, 'created', []).then(() => {
       return store.getLastAdded()
     }).then(added => {
       assert.equal(added, 0)
@@ -77,7 +72,7 @@ module.exports = function eachTest (test) {
       store.add({ type: '2' }, { id: [1, 'c'], time: 2 }),
       store.add({ type: '3' }, { id: [1, 'b'], time: 2 })
     ]).then(() => {
-      return check(store, [
+      return checkBoth(store, [
         [{ type: '2' }, { added: 2, id: [1, 'c'], time: 2 }],
         [{ type: '3' }, { added: 3, id: [1, 'b'], time: 2 }],
         [{ type: '1' }, { added: 1, id: [1, 'a'], time: 1 }]
@@ -109,7 +104,7 @@ module.exports = function eachTest (test) {
       return store.changeMeta([1], { a: 2, b: 2 })
     }).then(result => {
       assert.equal(result, true)
-      return check(store, [
+      return checkBoth(store, [
         [{ }, { id: [1], time: 1, added: 1, a: 2, b: 2 }]
       ])
     })
@@ -134,8 +129,8 @@ module.exports = function eachTest (test) {
       store.add({ type: '6' }, { id: [4, 'node1', 0], time: 4 })
     ])
       .then(() => store.remove([1, 'node1', 2]))
-      .then(result => {
-        assert.deepEqual(result, [
+      .then(res => {
+        assert.deepEqual(res, [
           { type: '3' }, { id: [1, 'node1', 2], time: 2, added: 3 }
         ])
         return checkBoth(store, [
@@ -151,12 +146,13 @@ module.exports = function eachTest (test) {
   test('ignores unknown entry', storeFactory => () => {
     const store = storeFactory()
     store.add({ }, { id: [1], time: 1, added: 1 })
-    store.remove([2]).then(result => {
-      assert.equal(result, false)
-      return check(storeFactory, 'created', [
-        [{ }, { id: [1], time: 1, added: 1 }]
-      ])
-    })
+      .then(() => store.remove([2]))
+      .then(result => {
+        assert.equal(result, false)
+        return check(storeFactory, 'created', [
+          [{ }, { id: [1], time: 1, added: 1 }]
+        ])
+      })
   })
 
   test('removes reasons and actions without reason', storeFactory => () => {
@@ -172,7 +168,7 @@ module.exports = function eachTest (test) {
         removed.push([action, meta])
       })
     }).then(() => {
-      return check(store, [
+      return checkBoth(store, [
         [{ type: '4' }, { added: 4, id: [4], time: 4, reasons: ['b'] }],
         [{ type: '3' }, { added: 3, id: [3], time: 3, reasons: ['b'] }]
       ])
@@ -188,7 +184,7 @@ module.exports = function eachTest (test) {
     ]).then(() => {
       return store.removeReason('a', { minAdded: 2 }, nope)
     }).then(() => {
-      return check(store, [
+      return checkBoth(store, [
         [{ type: '1' }, { added: 1, id: [1], time: 1, reasons: ['a'] }]
       ])
     })
@@ -203,7 +199,7 @@ module.exports = function eachTest (test) {
     ]).then(() => {
       return store.removeReason('a', { maxAdded: 2 }, nope)
     }).then(() => {
-      return check(store, [
+      return checkBoth(store, [
         [{ type: '3' }, { added: 3, id: [3], time: 3, reasons: ['a'] }]
       ])
     })
@@ -218,7 +214,7 @@ module.exports = function eachTest (test) {
     ]).then(() => {
       return store.removeReason('a', { maxAdded: 2, minAdded: 2 }, nope)
     }).then(() => {
-      return check(store, [
+      return checkBoth(store, [
         [{ type: '3' }, { added: 3, id: [3], time: 3, reasons: ['a'] }],
         [{ type: '1' }, { added: 1, id: [1], time: 1, reasons: ['a'] }]
       ])
@@ -230,7 +226,7 @@ module.exports = function eachTest (test) {
     return store.add({ }, { id: [1], time: 1, reasons: ['a'] })
       .then(() => store.removeReason('a', { maxAdded: 0 }, nope))
       .then(() => {
-        return check(store, [
+        return checkBoth(store, [
           [{ }, { added: 1, id: [1], time: 1, reasons: ['a'] }]
         ])
       })
