@@ -1,6 +1,6 @@
 {
   "name": "logux-store-tests",
-  "version": "0.0.1",
+  "version": "0.0.0",
   "description": "Common tests for any Logux store",
   "keywords": [
     "logux",
